@@ -47,7 +47,8 @@ class _ChatScreenState extends State<ChatScreen> {
 
   late String chatId;
   String otherUserName = "";
-  ScrollController scrollController = ScrollController(); // Added
+  ScrollController scrollController = ScrollController();
+  ValueNotifier<bool> canSend = ValueNotifier(false);
   bool isEditing = false;
   String editedName = "";
 
@@ -56,7 +57,7 @@ class _ChatScreenState extends State<ChatScreen> {
     super.initState();
     _loadUserId();
     _messageController.addListener(() {
-      setState(() {}); // Rebuild to update button state
+      canSend.value = _messageController.text.trim().isNotEmpty;
     });
     // Fetch messages after chatId is set
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -100,7 +101,9 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<String?> getProfilePic() async {
     final res = await http.get(
-      Uri.parse("http://localhost:8080/user/get?id=$userIdOther"),
+      Uri.parse(
+        "https://flutter-backend-yetypw.fly.dev/user/get?id=$userIdOther",
+      ),
     );
 
     Map<String, dynamic> user = jsonDecode(res.body);
@@ -111,7 +114,9 @@ class _ChatScreenState extends State<ChatScreen> {
   void _fetchMessages() async {
     try {
       final response = await http.get(
-        Uri.parse('http://localhost:8080/message/get?id=${chatId}'),
+        Uri.parse(
+          'https://flutter-backend-yetypw.fly.dev/message/get?id=${chatId}',
+        ),
       );
 
       if (response.statusCode == 200) {
@@ -141,7 +146,7 @@ class _ChatScreenState extends State<ChatScreen> {
     if (_messageController.text.isEmpty) return;
     // Backend has /message/create
     final response = await http.post(
-      Uri.parse('http://localhost:8080/message/create'),
+      Uri.parse('https://flutter-backend-yetypw.fly.dev/message/create'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
         'chatId': chatId,
@@ -291,11 +296,14 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                   ),
                 ),
-                IconButton(
-                  icon: Icon(Icons.send),
-                  onPressed: _messageController.text.trim().isEmpty
-                      ? null
-                      : _sendMessage,
+                ValueListenableBuilder<bool>(
+                  valueListenable: canSend,
+                  builder: (context, enabled, child) {
+                    return IconButton(
+                      icon: Icon(Icons.send),
+                      onPressed: enabled ? _sendMessage : null,
+                    );
+                  },
                 ),
               ],
             ),

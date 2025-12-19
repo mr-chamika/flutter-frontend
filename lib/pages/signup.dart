@@ -26,7 +26,7 @@ class _SignupPageState extends State<SignupPage> {
 
     // Assuming there's a /register endpoint in the backend
     final response = await http.post(
-      Uri.parse('http://localhost:8080/user/signup'),
+      Uri.parse('https://flutter-backend-yetypw.fly.dev/user/signup'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
         'firstName': firstname,

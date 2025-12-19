@@ -29,9 +29,9 @@ class _OTPPageState extends State<OTPPage> {
     }
 
     final verifyResponse = await http.post(
-      Uri.parse('http://localhost:8080/otp/verify'),
+      Uri.parse('https://flutter-backend-yetypw.fly.dev/otp/verify'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'email': widget.email, 'otp': otp}),
+      body: jsonEncode({'email': widget.email, 'otp': int.parse(otp)}),
     );
 
     if (verifyResponse.statusCode == 200) {
@@ -39,7 +39,7 @@ class _OTPPageState extends State<OTPPage> {
       if (result.contains('verified successfully')) {
         // Now call login to get token
         final loginResponse = await http.post(
-          Uri.parse('http://localhost:8080/user/login'),
+          Uri.parse('https://flutter-backend-yetypw.fly.dev/user/login'),
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode({'email': widget.email}),
         );
@@ -71,7 +71,7 @@ class _OTPPageState extends State<OTPPage> {
 
   void _resendOTP() async {
     final response = await http.post(
-      Uri.parse('http://localhost:8080/otp/send'),
+      Uri.parse('https://flutter-backend-yetypw.fly.dev/otp/send'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'email': widget.email}),
     );
@@ -157,7 +157,7 @@ class _OTPPageState extends State<OTPPage> {
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: List.generate(6, (index) {
                           return SizedBox(
-                            width: 40.0,
+                            width: 45.0,
                             child: TextField(
                               controller: _otpControllers[index],
                               focusNode: _focusNodes[index],

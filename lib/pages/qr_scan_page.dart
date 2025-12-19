@@ -200,7 +200,7 @@ class _QRScanPageState extends State<QRScanPage> {
     try {
       final response = await http.get(
         Uri.parse(
-          'http://localhost:8080/chat/create?inviteTo=${parse['id']}&scan=$userId&userName=$combinedUserNames',
+          'https://flutter-backend-yetypw.fly.dev/chat/create?inviteTo=${parse['id']}&scan=$userId&userName=$combinedUserNames',
         ),
       );
 

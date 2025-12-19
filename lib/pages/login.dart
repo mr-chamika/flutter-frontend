@@ -22,7 +22,7 @@ class _LoginState extends State<Login> {
     }
 
     final response = await http.post(
-      Uri.parse('http://localhost:8080/otp/send'),
+      Uri.parse('https://flutter-backend-yetypw.fly.dev/otp/send'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'email': email}),
     );
