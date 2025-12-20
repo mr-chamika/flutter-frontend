@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'dart:convert';
+import 'dart:async';
 import '../components/chat_list_card.dart';
 
 class Message {
@@ -98,6 +99,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   bool _isLoading = true;
   String userId = "";
   String message = "";
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
 
   String lastMsgId = "";
 
@@ -105,12 +107,28 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((
+      List<ConnectivityResult> results,
+    ) {
+      if (results.contains(ConnectivityResult.none)) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('No internet connection')));
+      }
+    });
     _loadUserId();
     _filteredChats = _chats;
     _searchController.addListener(_filterChats);
     setState(() {
       message = "Loading";
     });
+  }
+
+  @override
+  void dispose() {
+    _connectivitySubscription?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   void _loadUserId() async {
@@ -140,38 +158,39 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     var connectivityResult = await Connectivity().checkConnectivity();
     bool isOnline = connectivityResult != ConnectivityResult.none;
 
-    if (isOnline) {
-      try {
-        final response = await http.get(
-          Uri.parse(
-            'https://flutter-backend-yetypw.fly.dev/chat/list?id=$userId',
-          ),
-        );
-        if (response.statusCode == 200) {
-          List<dynamic> serverChatsJson = jsonDecode(response.body);
-          setState(() {
-            message = serverChatsJson.toString();
-          });
-          List<Chat> serverChats = serverChatsJson
-              .map((json) => Chat.fromJson(json))
-              .toList();
-          setState(() {
-            _chats = serverChats;
-            _filteredChats = _chats;
-          });
-        } else {
-          setState(() {
-            message = "Error get chat list";
-          });
-        }
-      } catch (e) {
+    if (!isOnline) {
+      setState(() {
+        message = "No internet connection";
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('No internet connection')));
+      return;
+    }
+    try {
+      final response = await http.get(
+        Uri.parse('http://localhost:8080/chat/list?id=$userId'),
+      );
+      if (response.statusCode == 200) {
+        List<dynamic> serverChatsJson = jsonDecode(response.body);
         setState(() {
-          message = '$e';
+          message = serverChatsJson.toString();
+        });
+        List<Chat> serverChats = serverChatsJson
+            .map((json) => Chat.fromJson(json))
+            .toList();
+        setState(() {
+          _chats = serverChats;
+          _filteredChats = _chats;
+        });
+      } else {
+        setState(() {
+          message = "Error get chat list";
         });
       }
-    } else {
+    } catch (e) {
       setState(() {
-        message = "Offline now";
+        message = '$e';
       });
     }
     setState(() {
@@ -186,13 +205,6 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
           .where((chat) => chat.userName.toLowerCase().contains(query))
           .toList();
     });
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _searchController.dispose();
-    super.dispose();
   }
 
   @override

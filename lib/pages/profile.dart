@@ -91,7 +91,7 @@ class ProfilePageState extends State<ProfilePage> {
         avatarUri = 'data:image/jpeg;base64,$base64Image';
       }
       final response = await http.put(
-        Uri.parse('https://flutter-backend-yetypw.fly.dev/user/update'),
+        Uri.parse('http://localhost:8080/user/update'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'id': userId,
@@ -130,7 +130,7 @@ class ProfilePageState extends State<ProfilePage> {
         Map<String, dynamic> decoded = JwtDecoder.decode(token);
         String id = decoded['id'];
         final response = await http.get(
-          Uri.parse('https://flutter-backend-yetypw.fly.dev/user/get?id=$id'),
+          Uri.parse('http://localhost:8080/user/get?id=$id'),
           headers: {'Content-Type': 'application/json'},
         );
         if (response.statusCode == 200) {
@@ -169,7 +169,7 @@ class ProfilePageState extends State<ProfilePage> {
     }
     try {
       final response = await http.put(
-        Uri.parse('https://flutter-backend-yetypw.fly.dev/user/email'),
+        Uri.parse('http://localhost:8080/user/email'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'id': userId,
@@ -212,7 +212,7 @@ class ProfilePageState extends State<ProfilePage> {
     }
     try {
       final response = await http.post(
-        Uri.parse('https://flutter-backend-yetypw.fly.dev/otp/send'),
+        Uri.parse('http://localhost:8080/otp/send'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': _newEmailController.text.trim()}),
       );
@@ -252,7 +252,7 @@ class ProfilePageState extends State<ProfilePage> {
     }
     try {
       await http.post(
-        Uri.parse('https://flutter-backend-yetypw.fly.dev/otp/send'),
+        Uri.parse('http://localhost:8080/otp/send'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': _newEmailController.text.trim()}),
       );
@@ -294,7 +294,7 @@ class ProfilePageState extends State<ProfilePage> {
     }
     try {
       final verifyResponse = await http.post(
-        Uri.parse('https://flutter-backend-yetypw.fly.dev/otp/verify'),
+        Uri.parse('http://localhost:8080/otp/verify'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'email': _newEmailController.text.trim(),
@@ -313,7 +313,7 @@ class ProfilePageState extends State<ProfilePage> {
       }
       // Update email
       final updateResponse = await http.put(
-        Uri.parse('https://flutter-backend-yetypw.fly.dev/user/update'),
+        Uri.parse('http://localhost:8080/user/update'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'id': userId,

@@ -1,9 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 import 'dart:convert';
-import '../pages/home.dart';
 
 class Message {
   final String id;
@@ -26,7 +27,11 @@ class Message {
       chatId: json['chatId'] ?? '',
       senderId: json['senderId'] ?? '',
       content: json['text'] ?? '',
-      timestamp: json['createdAt'] ?? '',
+      timestamp:
+          (json['createdAt'] is Map
+              ? json['createdAt']['\$date']
+              : json['createdAt']) ??
+          '', // Extract $date if it's a Map
     );
   }
 }
@@ -40,10 +45,12 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   List<Message> messages = [];
+  Timer? _pollTimer;
   TextEditingController _messageController = TextEditingController();
   String userId = "";
   String userIdOther = "";
   String message = "";
+  String? profilePic;
 
   late String chatId;
   String otherUserName = "";
@@ -68,7 +75,46 @@ class _ChatScreenState extends State<ChatScreen> {
       userIdOther = args['userIdOther'];
       editedName = otherUserName;
       message = args.toString();
+      _loadProfilePic();
       _fetchMessages();
+      _startPolling();
+    });
+  }
+
+  void _startPolling() {
+    _pollTimer = Timer.periodic(Duration(seconds: 3), (timer) async {
+      final sinceParam = messages.isNotEmpty ? messages.first.timestamp : '';
+
+      final response = await http.get(
+        Uri.parse(
+          'http://localhost:8080/message/poll?id=${chatId}&since=${sinceParam}',
+        ),
+      );
+      if (response.statusCode == 200) {
+        List<Message> newMessages = (jsonDecode(response.body) as List)
+            .where((m) => m is Map<String, dynamic>)
+            .map((m) => Message.fromJson(m))
+            .toList();
+
+        if (newMessages.isNotEmpty) {
+          setState(() {
+            for (var newMsg in newMessages) {
+              if (!messages.any((m) => m.id == newMsg.id)) {
+                messages.insert(0, newMsg);
+              }
+            }
+          });
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (scrollController.hasClients) {
+              scrollController.jumpTo(
+                scrollController.position.minScrollExtent,
+              );
+            }
+          });
+        }
+      } else {
+        print('Polling failed: ${response.statusCode}');
+      }
     });
   }
 
@@ -85,6 +131,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void dispose() {
     _messageController.dispose();
+    _pollTimer?.cancel();
     super.dispose();
   }
 
@@ -99,30 +146,40 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  void _loadProfilePic() async {
+    profilePic = await getProfilePic();
+    setState(() {});
+  }
+
   Future<String?> getProfilePic() async {
-    final res = await http.get(
-      Uri.parse(
-        "https://flutter-backend-yetypw.fly.dev/user/get?id=$userIdOther",
-      ),
-    );
-
-    Map<String, dynamic> user = jsonDecode(res.body);
-
-    return user['profilePic'];
+    try {
+      final res = await http.get(
+        Uri.parse("http://localhost:8080/user/get?id=$userIdOther"),
+      );
+      print(userIdOther);
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data is Map<String, dynamic>) {
+          return data['profilePic'];
+        }
+      }
+    } catch (e) {
+      print('Error fetching profile pic: $e');
+    }
+    return null;
   }
 
   void _fetchMessages() async {
     try {
       final response = await http.get(
-        Uri.parse(
-          'https://flutter-backend-yetypw.fly.dev/message/get?id=${chatId}',
-        ),
+        Uri.parse('http://localhost:8080/message/get?id=${chatId}'),
       );
 
       if (response.statusCode == 200) {
         List<dynamic> data = jsonDecode(response.body); // Expect a list
         setState(() {
           messages = data
+              .where((json) => json is Map<String, dynamic>)
               .map((json) => Message.fromJson(json))
               .toList()
               .reversed
@@ -146,7 +203,7 @@ class _ChatScreenState extends State<ChatScreen> {
     if (_messageController.text.isEmpty) return;
     // Backend has /message/create
     final response = await http.post(
-      Uri.parse('https://flutter-backend-yetypw.fly.dev/message/create'),
+      Uri.parse('http://localhost:8080/message/create'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
         'chatId': chatId,
@@ -155,13 +212,24 @@ class _ChatScreenState extends State<ChatScreen> {
       }),
     );
     if (response.statusCode == 200) {
+      var responseData = jsonDecode(response.body);
+      Message newMsg = Message.fromJson(responseData);
+      setState(() {
+        messages.insert(0, newMsg); // Add to beginning (latest)
+      });
       _messageController.clear();
       _fetchMessages(); // Refresh messages
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (scrollController.hasClients) {
+          scrollController.jumpTo(scrollController.position.minScrollExtent);
+        }
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    print(profilePic);
     return Scaffold(
       appBar: AppBar(
         actionsPadding: EdgeInsets.symmetric(vertical: 10.0, horizontal: 10.0),
@@ -171,44 +239,22 @@ class _ChatScreenState extends State<ChatScreen> {
             vertical: 8.0,
             horizontal: 5.0,
           ), // Add margin around the CircleAvatar
-          child: FutureBuilder<String?>(
-            future: getProfilePic(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return CircleAvatar(
-                  child: CircularProgressIndicator(),
+          child: profilePic == null
+              ? CircleAvatar(
+                  child: Icon(Icons.person),
                   backgroundColor: Colors.blue.shade200,
-                );
-              } else if (snapshot.hasError || snapshot.data == null) {
-                return CircleAvatar(
-                  child: Text(otherUserName[0].toUpperCase()),
-                  backgroundColor: Colors.blue.shade200,
-                );
-              } else {
-                String data = snapshot.data!;
-                if (data.startsWith('data:image')) {
-                  List<String> parts = data.split(',');
-                  if (parts.length == 2) {
-                    String base64 = parts[1];
-                    return CircleAvatar(
-                      backgroundImage: MemoryImage(base64Decode(base64)),
-                      backgroundColor: Colors.blue.shade200,
-                    );
-                  } else {
-                    return CircleAvatar(
-                      child: Text(otherUserName[0].toUpperCase()),
-                      backgroundColor: Colors.blue.shade200,
-                    );
-                  }
-                } else {
-                  return CircleAvatar(
-                    backgroundImage: NetworkImage(data),
-                    backgroundColor: Colors.blue.shade200,
-                  );
-                }
-              }
-            },
-          ),
+                )
+              : (profilePic!.startsWith('data:image')
+                    ? CircleAvatar(
+                        backgroundImage: MemoryImage(
+                          base64Decode(profilePic!.split(',')[1]),
+                        ),
+                        backgroundColor: Colors.blue.shade200,
+                      )
+                    : CircleAvatar(
+                        backgroundImage: NetworkImage(profilePic!),
+                        backgroundColor: Colors.blue.shade200,
+                      )),
         ),
       ),
       body: Column(

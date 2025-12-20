@@ -13,6 +13,8 @@ class OTPPage extends StatefulWidget {
 }
 
 class _OTPPageState extends State<OTPPage> {
+  bool loading = false;
+
   final List<TextEditingController> _otpControllers = List.generate(
     6,
     (_) => TextEditingController(),
@@ -28,50 +30,77 @@ class _OTPPageState extends State<OTPPage> {
       return;
     }
 
-    final verifyResponse = await http.post(
-      Uri.parse('https://flutter-backend-yetypw.fly.dev/otp/verify'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'email': widget.email, 'otp': int.parse(otp)}),
-    );
+    setState(() {
+      loading = true;
+    });
 
-    if (verifyResponse.statusCode == 200) {
-      String result = verifyResponse.body;
-      if (result.contains('verified successfully')) {
-        // Now call login to get token
-        final loginResponse = await http.post(
-          Uri.parse('https://flutter-backend-yetypw.fly.dev/user/login'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({'email': widget.email}),
-        );
+    try {
+      final verifyResponse = await http.post(
+        Uri.parse('http://localhost:8080/otp/verify'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': widget.email, 'otp': otp.toString()}),
+      );
 
-        if (loginResponse.statusCode == 200) {
-          var responseData = jsonDecode(loginResponse.body);
-          String token = responseData['token'];
-          SharedPreferences prefs = await SharedPreferences.getInstance();
-          await prefs.setBool('isLoggedIn', true);
-          await prefs.setString('email', widget.email);
-          await prefs.setString('token', token);
-          Navigator.pushReplacementNamed(context, '/home');
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Login failed after OTP verification')),
+      print("verify res" + verifyResponse.body.toString());
+
+      if (verifyResponse.statusCode == 200) {
+        String result = verifyResponse.body;
+        if (result.contains('verified successfully')) {
+          // Now call login to get token
+          final loginResponse = await http.post(
+            Uri.parse('http://localhost:8080/user/login'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'email': widget.email}),
           );
+
+          if (loginResponse.statusCode == 200) {
+            var responseData = jsonDecode(loginResponse.body);
+            String token = responseData['token'];
+            SharedPreferences prefs = await SharedPreferences.getInstance();
+            await prefs.setBool('isLoggedIn', true);
+            await prefs.setString('email', widget.email);
+            await prefs.setString('token', token);
+            Navigator.pushReplacementNamed(context, '/home');
+          } else {
+            setState(() {
+              loading = false;
+            });
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Login failed after OTP verification')),
+            );
+          }
+        } else {
+          setState(() {
+            loading = false;
+          });
+
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Invalid OTP')));
         }
       } else {
+        setState(() {
+          loading = false;
+        });
+
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Invalid OTP')));
+        ).showSnackBar(SnackBar(content: Text('Error verifying OTP')));
       }
-    } else {
+    } catch (e) {
+      setState(() {
+        loading = false; // Reset on exception
+      });
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Error verifying OTP')));
+      ).showSnackBar(SnackBar(content: Text('Network error: $e')));
     }
   }
 
   void _resendOTP() async {
     final response = await http.post(
-      Uri.parse('https://flutter-backend-yetypw.fly.dev/otp/send'),
+      Uri.parse('http://localhost:8080/otp/send'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'email': widget.email}),
     );
@@ -181,7 +210,7 @@ class _OTPPageState extends State<OTPPage> {
                     Column(
                       children: [
                         ElevatedButton(
-                          onPressed: _verifyOTP,
+                          onPressed: loading ? null : _verifyOTP,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.blue,
                             padding: EdgeInsets.symmetric(
@@ -193,7 +222,7 @@ class _OTPPageState extends State<OTPPage> {
                             ),
                           ),
                           child: Text(
-                            'Verify',
+                            loading ? 'Verifying...' : 'Verify',
                             style: TextStyle(
                               fontSize: 18.0,
                               color: Colors.white,

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:async';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
 class SignupPage extends StatefulWidget {
   @override
@@ -11,6 +13,27 @@ class _SignupPageState extends State<SignupPage> {
   final TextEditingController _firstnameController = TextEditingController();
   final TextEditingController _lastnameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((
+      List<ConnectivityResult> results,
+    ) {
+      if (results.contains(ConnectivityResult.none)) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('No internet connection')));
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _connectivitySubscription?.cancel();
+    super.dispose();
+  }
 
   void _signup() async {
     String firstname = _firstnameController.text.trim();
@@ -24,9 +47,17 @@ class _SignupPageState extends State<SignupPage> {
       return;
     }
 
+    var connectivityResult = await Connectivity().checkConnectivity();
+    if (connectivityResult == ConnectivityResult.none) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('No internet connection')));
+      return;
+    }
+
     // Assuming there's a /register endpoint in the backend
     final response = await http.post(
-      Uri.parse('https://flutter-backend-yetypw.fly.dev/user/signup'),
+      Uri.parse('http://localhost:8080/user/signup'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
         'firstName': firstname,

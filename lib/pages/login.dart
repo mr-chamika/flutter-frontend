@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:async';
 import 'otp_page.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
 class Login extends StatefulWidget {
   @override
@@ -11,39 +12,93 @@ class Login extends StatefulWidget {
 
 class _LoginState extends State<Login> {
   final TextEditingController _usernameController = TextEditingController();
+  bool loading = false;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((
+      List<ConnectivityResult> results,
+    ) {
+      if (results.contains(ConnectivityResult.none)) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('No internet connection')));
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _connectivitySubscription?.cancel();
+    super.dispose();
+  }
 
   void _login() async {
+    setState(() {
+      loading = true;
+    });
+
     String email = _usernameController.text.trim();
     if (email.isEmpty) {
+      setState(() {
+        loading = false;
+      });
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Please enter your email')));
       return;
     }
 
-    final response = await http.post(
-      Uri.parse('https://flutter-backend-yetypw.fly.dev/otp/send'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'email': email}),
-    );
-    print(response);
-
-    if (response.statusCode == 200) {
-      String result = response.body;
-      if (result.contains('OTP sent to')) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => OTPPage(email: email)),
-        );
-      } else {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Email not registered')));
-      }
-    } else {
+    var connectivityResult = await Connectivity().checkConnectivity();
+    if (connectivityResult == ConnectivityResult.none) {
+      setState(() {
+        loading = false;
+      });
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Error sending OTP')));
+      ).showSnackBar(SnackBar(content: Text('No internet connection')));
+      return;
+    }
+
+    try {
+      final response = await http.post(
+        Uri.parse('http://localhost:8080/otp/send'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': email}),
+      );
+
+      if (response.statusCode == 200) {
+        String result = response.body;
+        if (result.contains('OTP sent to')) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => OTPPage(email: email)),
+          );
+        } else {
+          setState(() {
+            loading = false;
+          });
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Email not registered')));
+        }
+      } else {
+        setState(() {
+          loading = false;
+        });
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error sending OTP')));
+      }
+    } catch (e) {
+      setState(() {
+        loading = false; // Reset on exception
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Network error: $e')));
     }
   }
 
@@ -94,7 +149,7 @@ class _LoginState extends State<Login> {
                     ),
                     SizedBox(height: 20.0),
                     ElevatedButton(
-                      onPressed: _login,
+                      onPressed: loading ? null : _login,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blue,
                         padding: EdgeInsets.symmetric(
@@ -106,7 +161,7 @@ class _LoginState extends State<Login> {
                         ),
                       ),
                       child: Text(
-                        'Login',
+                        loading ? 'Please Wait...' : 'Login',
                         style: TextStyle(fontSize: 18.0, color: Colors.white),
                       ),
                     ),
