@@ -20,7 +20,7 @@ class Chat {
   final int unreadCount;
   final String createdAt;
   final String updatedAt;
-  final bool isSynced;
+  //final bool isSynced;
 
   Chat({
     required this.id,
@@ -34,47 +34,43 @@ class Chat {
     required this.unreadCount,
     required this.createdAt,
     required this.updatedAt,
-    required this.isSynced,
+    //required this.isSynced,
   });
 
-  factory Chat.fromJson(Map<String, dynamic> json) {
-    return Chat(
-      id: json['_id'],
-      participants: List<String>.from(json['participants']),
-      lastMessageId: json['lastMessageId'],
-      status: json['status'],
-      isOnline: json['isOnline'],
-      userName: json['userName'],
-      consent1: json['consent1'],
-      consent2: json['consent2'],
-      unreadCount: json['unreadCount'],
-      createdAt: json['createdAt'],
-      updatedAt: json['updatedAt'],
-      isSynced: json['isSynced'] ?? true,
-    );
-  }
+  factory Chat.fromJson(Map<String, dynamic> json) => Chat(
+    id: json['_id'],
+    participants: List<String>.from(json['participants']),
+    lastMessageId: json['lastMessageId'],
+    status: json['status'],
+    isOnline: json['online'],
+    userName: json['userName'],
+    consent1: json['consent1'],
+    consent2: json['consent2'],
+    unreadCount: json['unreadCount'],
+    createdAt: json['createdAt'],
+    updatedAt: json['updatedAt'],
+    //isSynced: json['isSynced'] ?? true,
+  );
 
-  Map<String, dynamic> toJson() {
-    return {
-      '_id': id,
-      'participants': participants,
-      'lastMessageId': lastMessageId,
-      'status': status,
-      'isOnline': isOnline,
-      'userName': userName,
-      'consent1': consent1,
-      'consent2': consent2,
-      'unreadCount': unreadCount,
-      'createdAt': createdAt,
-      'updatedAt': updatedAt,
-      'isSynced': isSynced,
-    };
-  }
+  Map<String, dynamic> toJson() => {
+    '_id': id,
+    'participants': participants,
+    'lastMessageId': lastMessageId,
+    'status': status,
+    'online': isOnline,
+    'userName': userName,
+    'consent1': consent1,
+    'consent2': consent2,
+    'unreadCount': unreadCount,
+    'createdAt': createdAt,
+    'updatedAt': updatedAt,
+    //'isSynced': isSynced,
+  };
 }
 
 class QRScanPage extends StatefulWidget {
   @override
-  _QRScanPageState createState() => _QRScanPageState();
+  State<QRScanPage> createState() => _QRScanPageState();
 }
 
 class _QRScanPageState extends State<QRScanPage> {
@@ -82,307 +78,335 @@ class _QRScanPageState extends State<QRScanPage> {
 
   bool scanned = false;
   bool isLoading = false;
+  bool isOnline = true;
+  bool isCameraReady = false;
+  PermissionStatus? cameraPermissionStatus;
+
   String userId = "";
   String myName = "";
-  bool isOnline = true;
-  bool permissionRequested = false;
 
   @override
   void initState() {
     super.initState();
     _getToken();
     _checkConnectivity();
-    if (!kIsWeb) {
-      _requestCameraPermission();
+    if (!kIsWeb) _requestCameraPermission();
+  }
+
+  Future<void> _startCamera() async {
+    try {
+      if (cameraController != null) {
+        await cameraController!.stop();
+        cameraController!.dispose();
+      }
+      cameraController = MobileScannerController();
+      await cameraController!.start();
+
+      setState(() {
+        isCameraReady = true;
+      });
+    } catch (e) {
+      setState(() {
+        isCameraReady = true;
+      });
     }
   }
 
-  void _requestCameraPermission() async {
+  // ------------------ CAMERA PERMISSION ------------------
+  Future<void> _requestCameraPermission() async {
+    final status = await Permission.camera.status;
+
     setState(() {
-      permissionRequested = true;
+      cameraPermissionStatus = status;
     });
-    var status = await Permission.camera.request();
+
     if (status.isGranted) {
+      await _startCamera();
+      return;
+    }
+
+    if (status.isDenied) {
+      final result = await Permission.camera.request();
+
       setState(() {
-        cameraController = MobileScannerController();
+        cameraPermissionStatus = result;
       });
-    } else if (status.isPermanentlyDenied) {
+
+      if (result.isGranted) {
+        await _startCamera();
+      } else if (result.isPermanentlyDenied) {
+        _showPermissionDeniedAlert();
+      }
+      return;
+    }
+
+    if (status.isPermanentlyDenied) {
       _showPermissionDeniedAlert();
-    } else {
-      _showAlert(
-        "Camera Permission Required",
-        "Camera permission is needed to scan QR codes.",
-      );
     }
   }
 
   @override
   void dispose() {
+    cameraController?.stop();
     cameraController?.dispose();
     super.dispose();
   }
 
-  void _getToken() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? token = prefs.getString('token');
+  // ------------------ TOKEN ------------------
+  Future<void> _getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+
     if (token != null) {
-      Map<String, dynamic> decodedToken = JwtDecoder.decode(token);
-      setUserId(decodedToken['id']);
-      setMyName(decodedToken['name']);
+      final decoded = JwtDecoder.decode(token);
+      setState(() {
+        userId = decoded['id'];
+        myName = decoded['name'];
+      });
     }
   }
 
+  // ------------------ CONNECTIVITY ------------------
   void _checkConnectivity() async {
-    var connectivityResult = await Connectivity().checkConnectivity();
-    setState(() {
-      isOnline = connectivityResult != ConnectivityResult.none;
-    });
-    Connectivity().onConnectivityChanged.listen((
-      List<ConnectivityResult> results,
-    ) {
+    final result = await Connectivity().checkConnectivity();
+    setState(() => isOnline = result != ConnectivityResult.none);
+
+    Connectivity().onConnectivityChanged.listen((results) {
       setState(() {
-        isOnline = results.any((result) => result != ConnectivityResult.none);
+        isOnline = results.any((r) => r != ConnectivityResult.none);
       });
     });
   }
 
-  void setUserId(String id) {
-    setState(() {
-      userId = id;
-    });
-  }
-
-  void setMyName(String name) {
-    setState(() {
-      myName = name;
-    });
-  }
-
+  // ------------------ QR SCAN ------------------
   void _handleBarCodeScanned(BarcodeCapture capture) {
-    final List<Barcode> barcodes = capture.barcodes;
-    if (barcodes.isNotEmpty) {
-      final String data = barcodes.first.rawValue ?? '';
-      _handleBarCodeScannedData(data); // Rename existing method or adjust
+    if (capture.barcodes.isEmpty || scanned || isLoading) return;
+
+    final data = capture.barcodes.first.rawValue ?? '';
+    _handleBarCodeScannedData(data);
+  }
+
+  Future<List<Chat>> _fetchChats() async {
+    final response = await http.get(
+      Uri.parse('http://localhost:8080/chat/list?id=$userId'),
+    );
+    if (response.statusCode == 200) {
+      List<dynamic> data = json.decode(response.body);
+
+      return data.map((e) => Chat.fromJson(e)).toList();
+    } else {
+      throw Exception('Failed to load chats');
     }
   }
 
-  void _handleBarCodeScannedData(String data) async {
-    if (scanned || isLoading) return;
-    setState(() {
-      scanned = true;
-      isLoading = true;
-    });
+  Future<void> _handleBarCodeScannedData(String data) async {
+    scanned = true;
+    isLoading = true;
+    setState(() {});
 
     if (userId.isEmpty) {
-      _showAlert("Error", "User ID not loaded. Please try again.");
-      setState(() {
-        isLoading = false;
-        scanned = false;
-      });
+      _resetScan("Error", "User not loaded. Try again.");
       return;
     }
 
-    Map<String, dynamic>? parse;
+    Map<String, dynamic> parsed;
     try {
-      parse = json.decode(data);
-    } catch (e) {
-      _showAlert("Invalid QR Code", "The scanned QR code is not valid.");
-      setState(() {
-        isLoading = false;
-        scanned = false;
-      });
+      parsed = json.decode(data);
+    } catch (_) {
+      _resetScan("Invalid QR", "Invalid QR code format.");
       return;
     }
 
-    String scannedUserName = parse!['name'] ?? "Unknown";
-    String combinedUserNames = "$myName,$scannedUserName";
+    final combinedNames = "$myName,${parsed['name'] ?? 'Unknown'}";
 
     try {
-      final response = await http.get(
-        Uri.parse(
-          'http://localhost:8080/chat/create?inviteTo=${parse['id']}&scan=$userId&userName=$combinedUserNames',
-        ),
-      );
+      List<Chat> chats = await _fetchChats();
 
-      if (response.statusCode == 200) {
-        String newServerId = response.body;
-        // Navigate to chat screen
-        Navigator.pushNamed(context, '/chat', arguments: newServerId);
-      } else {
-        _showAlert(
-          "Error",
-          "Failed to create chat. Status: ${response.statusCode}",
+      String otherId = parsed['id'];
+      Chat? existingChat;
+
+      try {
+        existingChat = chats.firstWhere(
+          (chat) =>
+              chat.participants.contains(userId) &&
+              chat.participants.contains(otherId),
         );
+      } catch (_) {
+        existingChat = null;
       }
-    } catch (e) {
-      _showAlert(
-        "Network Error",
-        "Unable to create chat. Please check your connection.",
-      );
+
+      if (existingChat != null) {
+        Navigator.pushNamed(
+          context,
+          '/chat',
+          arguments: {
+            'chatId': existingChat.id,
+            'userName': existingChat.participants[0] == userId
+                ? existingChat.userName.split(",")[1]
+                : existingChat.userName.split(",")[0],
+            'userIdOther': existingChat.participants[0] == userId
+                ? existingChat.participants[1]
+                : existingChat.participants[0],
+          },
+        );
+      } else {
+        final response = await http.get(
+          Uri.parse(
+            'http://localhost:8080/chat/create'
+            '?inviteTo=$otherId'
+            '&scan=$userId'
+            '&userName=$combinedNames',
+          ),
+        );
+
+        if (response.statusCode == 200) {
+          Navigator.pushNamed(context, '/');
+        } else {
+          _resetScan("Error", "Failed to create chat.");
+        }
+      }
+    } catch (_) {
+      _resetScan("Network Error", "hi your internet connection.");
     } finally {
-      setState(() {
-        isLoading = false;
-      });
+      isLoading = false;
+      setState(() {});
     }
   }
 
+  void _resetScan(String title, String message) {
+    scanned = false;
+    isLoading = false;
+    setState(() {});
+    _showAlert(title, message);
+  }
+
+  // ------------------ UI ------------------
+  @override
+  Widget build(BuildContext context) {
+    if (kIsWeb) {
+      return const Scaffold(
+        body: Center(child: Text("QR scanning not supported on Web")),
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Scan QR Code"),
+        backgroundColor: Colors.blue.shade700,
+        actions: [
+          if (isCameraReady) ...[
+            IconButton(
+              icon: const Icon(Icons.flash_on),
+              onPressed: () => cameraController?.toggleTorch(),
+            ),
+            IconButton(
+              icon: const Icon(Icons.flip_camera_android),
+              onPressed: () => cameraController?.switchCamera(),
+            ),
+          ],
+        ],
+      ),
+      body: Stack(
+        children: [
+          if (isCameraReady)
+            MobileScanner(
+              controller: cameraController,
+              onDetect: _handleBarCodeScanned,
+              errorBuilder: (_, __, ___) => const SizedBox(),
+            ),
+          if (isCameraReady)
+            Positioned.fill(
+              child: Container(
+                alignment: Alignment.center,
+                child: Container(
+                  width: 200,
+                  height: 200,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.white, width: 2),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+            ),
+          if (cameraPermissionStatus?.isDenied == true ||
+              cameraPermissionStatus?.isPermanentlyDenied == true)
+            Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text("Camera permission denied"),
+                  const SizedBox(height: 12),
+                  ElevatedButton(
+                    onPressed: openAppSettings,
+                    child: const Text("Open Settings"),
+                  ),
+                ],
+              ),
+            ),
+          if (!isCameraReady &&
+              (cameraPermissionStatus?.isGranted == true ||
+                  cameraPermissionStatus == null))
+            const Center(child: CircularProgressIndicator()),
+        ],
+      ),
+    );
+  }
+
+  Widget _overlay(String text, {bool loader = false}) {
+    return Container(
+      color: Colors.black54,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (loader) const CircularProgressIndicator(color: Colors.white),
+            const SizedBox(height: 16),
+            Text(
+              text,
+              style: const TextStyle(color: Colors.white, fontSize: 18),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ------------------ ALERTS ------------------
   void _showPermissionDeniedAlert() {
     showDialog(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text("Camera Permission Denied"),
-          content: Text(
-            "Camera permission is permanently denied. Please enable it in app settings to scan QR codes.",
+      builder: (_) => AlertDialog(
+        title: const Text("Camera Permission Denied"),
+        content: const Text("Enable camera permission in app settings."),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
           ),
-          actions: [
-            TextButton(
-              child: Text("Cancel"),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-            TextButton(
-              child: Text("Open Settings"),
-              onPressed: () {
-                openAppSettings();
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
-        );
-      },
+          TextButton(
+            onPressed: () {
+              openAppSettings();
+              Navigator.pop(context);
+            },
+            child: const Text("Open Settings"),
+          ),
+        ],
+      ),
     );
   }
 
   void _showAlert(String title, String message) {
     showDialog(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text(title),
-          content: Text(message),
-          actions: [
-            TextButton(
-              child: Text("OK"),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (kIsWeb) {
-      return Scaffold(
-        appBar: AppBar(
-          title: Text('Scan QR Code'),
-          backgroundColor: Colors.blue.shade700,
-        ),
-        body: Center(
-          child: Text('QR Code scanning is not available on the web.'),
-        ),
-      );
-    }
-    return PopScope(
-      canPop: false,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text('Scan QR Code'),
-          backgroundColor: Colors.blue.shade700,
-          automaticallyImplyLeading: false,
-          actions: [
-            if (cameraController != null) ...[
-              IconButton(
-                icon: Icon(Icons.flash_on),
-                onPressed: () => cameraController?.toggleTorch(),
-              ),
-              IconButton(
-                icon: Icon(Icons.flip_camera_android),
-                onPressed: () => cameraController?.switchCamera(),
-              ),
-            ],
-          ],
-        ),
-        body: Stack(
-          children: [
-            if (cameraController != null)
-              MobileScanner(
-                controller: cameraController,
-                onDetect: (BarcodeCapture capture) {
-                  _handleBarCodeScanned(capture);
-                },
-              )
-            else if (permissionRequested)
-              Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text('Camera permission denied.'),
-                    SizedBox(height: 20),
-                    ElevatedButton(
-                      onPressed: _requestCameraPermission,
-                      child: Text('Retry Permission'),
-                    ),
-                  ],
-                ),
-              )
-            else
-              Center(child: Text('Requesting camera permission...')),
-            // Overlay for scanning area
-            Center(
-              child: Container(
-                width: 250,
-                height: 250,
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.white, width: 2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-            Positioned(
-              top: 100,
-              left: 0,
-              right: 0,
-              child: Text(
-                'Align QR code within the frame',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white, fontSize: 16),
-              ),
-            ),
-            if (!isOnline)
-              Container(
-                color: Colors.black.withOpacity(0.5),
-                child: Center(
-                  child: Text(
-                    "You are offline",
-                    style: TextStyle(color: Colors.white, fontSize: 18),
-                  ),
-                ),
-              ),
-            if (isLoading)
-              Container(
-                color: Colors.black.withOpacity(0.5),
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      CircularProgressIndicator(color: Colors.white),
-                      SizedBox(height: 20),
-                      Text(
-                        "Processing QR Code...",
-                        style: TextStyle(color: Colors.white, fontSize: 18),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-          ],
-        ),
+      builder: (_) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("OK"),
+          ),
+        ],
       ),
     );
   }

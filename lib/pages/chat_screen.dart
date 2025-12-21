@@ -156,7 +156,7 @@ class _ChatScreenState extends State<ChatScreen> {
       final res = await http.get(
         Uri.parse("http://localhost:8080/user/get?id=$userIdOther"),
       );
-      print(userIdOther);
+
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         if (data is Map<String, dynamic>) {
@@ -229,7 +229,6 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    print(profilePic);
     return Scaffold(
       appBar: AppBar(
         actionsPadding: EdgeInsets.symmetric(vertical: 10.0, horizontal: 10.0),

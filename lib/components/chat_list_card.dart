@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import '../pages/home.dart'; // Assuming Chat is defined there
 import 'package:http/http.dart' as http;
 
-class ChatListCard extends StatelessWidget {
+class ChatListCard extends StatefulWidget {
   final Chat chat;
   final String otherUserName;
   final VoidCallback onTap;
@@ -19,6 +19,22 @@ class ChatListCard extends StatelessWidget {
     this.lastMessageId,
     this.userId,
   }) : super(key: key);
+
+  @override
+  _ChatListCardState createState() => _ChatListCardState();
+}
+
+class _ChatListCardState extends State<ChatListCard> {
+  late Future<String?> _profilePicFuture;
+  late Future<Map<String, dynamic>> _lastMsgFuture;
+  String? lastMsgId;
+
+  @override
+  void initState() {
+    super.initState();
+    _profilePicFuture = getProfilePic();
+    _lastMsgFuture = getLastMsg();
+  }
 
   String _capitalize(String text) {
     if (text.isEmpty) return text;
@@ -50,22 +66,24 @@ class ChatListCard extends StatelessWidget {
   }
 
   Future<Map<String, dynamic>> getLastMsg() async {
-    if (lastMessageId == null) {
+    if (widget.lastMessageId == null) {
       return {"text": "No message yet", "time": ""};
     }
     final res = await http.get(
-      Uri.parse("http://localhost:8080/message/one?id=$lastMessageId"),
+      Uri.parse("http://localhost:8080/message/one?id=${widget.lastMessageId}"),
     );
 
     Map<String, dynamic> msg = jsonDecode(res.body);
     Message x = Message.fromJson(msg);
+
+    lastMsgId = x.senderId;
 
     return {"text": x.content, "time": x.timestamp};
   }
 
   Future<String?> getProfilePic() async {
     final res = await http.get(
-      Uri.parse("http://localhost:8080/user/get?id=$userId"),
+      Uri.parse("http://localhost:8080/user/get?id=${widget.userId}"),
     );
 
     Map<String, dynamic> user = jsonDecode(res.body);
@@ -79,7 +97,7 @@ class ChatListCard extends StatelessWidget {
       margin: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       child: ListTile(
         leading: FutureBuilder<String?>(
-          future: getProfilePic(),
+          future: _profilePicFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return CircleAvatar(
@@ -88,7 +106,7 @@ class ChatListCard extends StatelessWidget {
               );
             } else if (snapshot.hasError || snapshot.data == null) {
               return CircleAvatar(
-                child: Text(_getInitials(otherUserName)),
+                child: Text(_getInitials(widget.otherUserName)),
                 backgroundColor: Colors.grey.shade200,
               );
             } else {
@@ -109,7 +127,7 @@ class ChatListCard extends StatelessWidget {
                   );
                 } else {
                   return CircleAvatar(
-                    child: Text(_getInitials(otherUserName)),
+                    child: Text(_getInitials(widget.otherUserName)),
                     backgroundColor: Colors.grey.shade200,
                   );
                 }
@@ -126,18 +144,18 @@ class ChatListCard extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                _capitalize(otherUserName),
+                _capitalize(widget.otherUserName),
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
             Text(
-              _formatTime(chat.updatedAt),
+              _formatTime(widget.chat.updatedAt),
               style: TextStyle(fontSize: 12, color: Colors.grey),
             ),
           ],
         ),
         subtitle: FutureBuilder<Map<String, dynamic>>(
-          future: getLastMsg(),
+          future: _lastMsgFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return Text('Loading last message...');
@@ -145,11 +163,14 @@ class ChatListCard extends StatelessWidget {
               return Text('Error loading message');
             } else {
               Map<String, dynamic>? data = snapshot.data;
+
+              String prefix = lastMsgId == widget.userId ? "" : "You : ";
+
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    data?['text'] ?? 'No message yet',
+                    '${prefix} ${data?['text'] ?? 'No message yet'}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -158,17 +179,17 @@ class ChatListCard extends StatelessWidget {
             }
           },
         ),
-        trailing: chat.unreadCount > 0
+        trailing: widget.chat.unreadCount > 0
             ? CircleAvatar(
                 radius: 10,
                 backgroundColor: Colors.red,
                 child: Text(
-                  chat.unreadCount.toString(),
+                  widget.chat.unreadCount.toString(),
                   style: TextStyle(color: Colors.white, fontSize: 12),
                 ),
               )
             : null,
-        onTap: onTap,
+        onTap: widget.onTap,
       ),
     );
   }

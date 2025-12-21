@@ -178,6 +178,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         });
         List<Chat> serverChats = serverChatsJson
             .map((json) => Chat.fromJson(json))
+            .toList()
+            .reversed
             .toList();
         setState(() {
           _chats = serverChats;
@@ -201,9 +203,12 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   void _filterChats() {
     String query = _searchController.text.toLowerCase();
     setState(() {
-      _filteredChats = _chats
-          .where((chat) => chat.userName.toLowerCase().contains(query))
-          .toList();
+      _filteredChats = _chats.where((chat) {
+        final otherUserName = chat.participants[0] == userId
+            ? chat.userName.split(",")[1]
+            : chat.userName.split(",")[0];
+        return otherUserName.toLowerCase().startsWith(query);
+      }).toList();
     });
   }
 
