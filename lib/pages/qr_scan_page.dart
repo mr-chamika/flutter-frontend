@@ -188,7 +188,9 @@ class _QRScanPageState extends State<QRScanPage> {
 
   Future<List<Chat>> _fetchChats() async {
     final response = await http.get(
-      Uri.parse('http://localhost:8080/chat/list?id=$userId'),
+      Uri.parse(
+        'https://flutter-backend-yetypw-production.up.railway.app/chat/list?id=$userId',
+      ),
     );
     if (response.statusCode == 200) {
       List<dynamic> data = json.decode(response.body);
@@ -252,7 +254,7 @@ class _QRScanPageState extends State<QRScanPage> {
       } else {
         final response = await http.get(
           Uri.parse(
-            'http://localhost:8080/chat/create'
+            'https://flutter-backend-yetypw-production.up.railway.app/chat/create'
             '?inviteTo=$otherId'
             '&scan=$userId'
             '&userName=$combinedNames',

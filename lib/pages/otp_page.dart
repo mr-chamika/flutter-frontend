@@ -36,7 +36,9 @@ class _OTPPageState extends State<OTPPage> {
 
     try {
       final verifyResponse = await http.post(
-        Uri.parse('http://localhost:8080/otp/verify'),
+        Uri.parse(
+          'https://flutter-backend-yetypw-production.up.railway.app/otp/verify',
+        ),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': widget.email, 'otp': otp.toString()}),
       );
@@ -48,7 +50,9 @@ class _OTPPageState extends State<OTPPage> {
         if (result.contains('verified successfully')) {
           // Now call login to get token
           final loginResponse = await http.post(
-            Uri.parse('http://localhost:8080/user/login'),
+            Uri.parse(
+              'https://flutter-backend-yetypw-production.up.railway.app/user/login',
+            ),
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({'email': widget.email}),
           );
@@ -100,7 +104,9 @@ class _OTPPageState extends State<OTPPage> {
 
   void _resendOTP() async {
     final response = await http.post(
-      Uri.parse('http://localhost:8080/otp/send'),
+      Uri.parse(
+        'https://flutter-backend-yetypw-production.up.railway.app/otp/send',
+      ),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'email': widget.email}),
     );

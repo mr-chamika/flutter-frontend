@@ -70,7 +70,9 @@ class _ChatListCardState extends State<ChatListCard> {
       return {"text": "No message yet", "time": ""};
     }
     final res = await http.get(
-      Uri.parse("http://localhost:8080/message/one?id=${widget.lastMessageId}"),
+      Uri.parse(
+        "https://flutter-backend-yetypw-production.up.railway.app/message/one?id=${widget.lastMessageId}",
+      ),
     );
 
     Map<String, dynamic> msg = jsonDecode(res.body);
@@ -83,7 +85,9 @@ class _ChatListCardState extends State<ChatListCard> {
 
   Future<String?> getProfilePic() async {
     final res = await http.get(
-      Uri.parse("http://localhost:8080/user/get?id=${widget.userId}"),
+      Uri.parse(
+        "https://flutter-backend-yetypw-production.up.railway.app/user/get?id=${widget.userId}",
+      ),
     );
 
     Map<String, dynamic> user = jsonDecode(res.body);

@@ -44,7 +44,9 @@ class _ChangeLocationState extends State<ChangeLocation> {
       String x = param["id"]!;
 
       Response res = await get(
-        Uri.parse("http://localhost:8080/user/get?id=$x"),
+        Uri.parse(
+          "https://flutter-backend-yetypw-production.up.railway.app/user/get?id=$x",
+        ),
       );
       Map data = jsonDecode(res.body);
 

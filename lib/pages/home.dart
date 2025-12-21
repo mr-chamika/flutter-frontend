@@ -169,7 +169,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     }
     try {
       final response = await http.get(
-        Uri.parse('http://localhost:8080/chat/list?id=$userId'),
+        Uri.parse(
+          'https://flutter-backend-yetypw-production.up.railway.app/chat/list?id=$userId',
+        ),
       );
       if (response.statusCode == 200) {
         List<dynamic> serverChatsJson = jsonDecode(response.body);

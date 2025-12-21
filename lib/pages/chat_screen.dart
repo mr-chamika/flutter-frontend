@@ -87,7 +87,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
       final response = await http.get(
         Uri.parse(
-          'http://localhost:8080/message/poll?id=${chatId}&since=${sinceParam}',
+          'https://flutter-backend-yetypw-production.up.railway.app/message/poll?id=${chatId}&since=${sinceParam}',
         ),
       );
       if (response.statusCode == 200) {
@@ -154,7 +154,9 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<String?> getProfilePic() async {
     try {
       final res = await http.get(
-        Uri.parse("http://localhost:8080/user/get?id=$userIdOther"),
+        Uri.parse(
+          "https://flutter-backend-yetypw-production.up.railway.app/user/get?id=$userIdOther",
+        ),
       );
 
       if (res.statusCode == 200) {
@@ -172,7 +174,9 @@ class _ChatScreenState extends State<ChatScreen> {
   void _fetchMessages() async {
     try {
       final response = await http.get(
-        Uri.parse('http://localhost:8080/message/get?id=${chatId}'),
+        Uri.parse(
+          'https://flutter-backend-yetypw-production.up.railway.app/message/get?id=${chatId}',
+        ),
       );
 
       if (response.statusCode == 200) {
@@ -203,7 +207,9 @@ class _ChatScreenState extends State<ChatScreen> {
     if (_messageController.text.isEmpty) return;
     // Backend has /message/create
     final response = await http.post(
-      Uri.parse('http://localhost:8080/message/create'),
+      Uri.parse(
+        'https://flutter-backend-yetypw-production.up.railway.app/message/create',
+      ),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
         'chatId': chatId,

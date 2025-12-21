@@ -91,7 +91,9 @@ class ProfilePageState extends State<ProfilePage> {
         avatarUri = 'data:image/jpeg;base64,$base64Image';
       }
       final response = await http.put(
-        Uri.parse('http://localhost:8080/user/update'),
+        Uri.parse(
+          'https://flutter-backend-yetypw-production.up.railway.app/user/update',
+        ),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'id': userId,
@@ -130,7 +132,9 @@ class ProfilePageState extends State<ProfilePage> {
         Map<String, dynamic> decoded = JwtDecoder.decode(token);
         String id = decoded['id'];
         final response = await http.get(
-          Uri.parse('http://localhost:8080/user/get?id=$id'),
+          Uri.parse(
+            'https://flutter-backend-yetypw-production.up.railway.app/user/get?id=$id',
+          ),
           headers: {'Content-Type': 'application/json'},
         );
         if (response.statusCode == 200) {
@@ -169,7 +173,9 @@ class ProfilePageState extends State<ProfilePage> {
     }
     try {
       final response = await http.put(
-        Uri.parse('http://localhost:8080/user/email'),
+        Uri.parse(
+          'https://flutter-backend-yetypw-production.up.railway.app/user/email',
+        ),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'id': userId,
@@ -212,7 +218,9 @@ class ProfilePageState extends State<ProfilePage> {
     }
     try {
       final response = await http.post(
-        Uri.parse('http://localhost:8080/otp/send'),
+        Uri.parse(
+          'https://flutter-backend-yetypw-production.up.railway.app/otp/send',
+        ),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': _newEmailController.text.trim()}),
       );
@@ -252,7 +260,9 @@ class ProfilePageState extends State<ProfilePage> {
     }
     try {
       await http.post(
-        Uri.parse('http://localhost:8080/otp/send'),
+        Uri.parse(
+          'https://flutter-backend-yetypw-production.up.railway.app/otp/send',
+        ),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': _newEmailController.text.trim()}),
       );
@@ -294,7 +304,9 @@ class ProfilePageState extends State<ProfilePage> {
     }
     try {
       final verifyResponse = await http.post(
-        Uri.parse('http://localhost:8080/otp/verify'),
+        Uri.parse(
+          'https://flutter-backend-yetypw-production.up.railway.app/otp/verify',
+        ),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'email': _newEmailController.text.trim(),
@@ -313,7 +325,9 @@ class ProfilePageState extends State<ProfilePage> {
       }
       // Update email
       final updateResponse = await http.put(
-        Uri.parse('http://localhost:8080/user/update'),
+        Uri.parse(
+          'https://flutter-backend-yetypw-production.up.railway.app/user/update',
+        ),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'id': userId,
